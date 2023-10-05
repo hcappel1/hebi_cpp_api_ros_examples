@@ -10,6 +10,10 @@
 
 #include "Eigen/Dense"
 
+#include "ros/ros.h"
+#include "std_msgs/Float32MultiArray.h"
+#include "std_msgs/Float32.h"
+
 /**
  * diff_drive.hpp
  *
@@ -78,6 +82,11 @@ public:
   // calling frequency is ~100Hz. Slow or intermittent calls will result in jerky motion.
   bool update(double time);
 
+  Eigen::VectorXd getMotorVelocity();
+  Eigen::VectorXd getMotorTorque();
+ 
+
+
   // How far through the last commanded trajectory are we?
   double trajectoryPercentComplete(double time);
   // Has the last commanded trajectory been completed?
@@ -98,6 +107,7 @@ public:
 
   void clearColor();
 
+
 private:
   DiffDrive(std::shared_ptr<Group> group,
     DiffDriveTrajectory base_trajectory,
@@ -105,13 +115,18 @@ private:
     double start_time);
 
   /* Declare main kinematic variables */
-  static constexpr double wheel_radius_ = 0.10; // m
+  static constexpr double wheel_radius_ = 0.0693; // m
   static constexpr double base_radius_ = 0.43; // m (half of distance between center of diff drive wheels)
 
   std::shared_ptr<Group> group_;
 
   GroupFeedback feedback_;
   GroupCommand command_;
+
+  //ros info
+  // ros::NodeHandle n;
+  // ros::Publisher motor_vel_pub;
+  // ros::Publisher motor_torque_pub;
 
   // These are just temporary variables to cache output from
   // Trajectory::getState.
@@ -123,6 +138,7 @@ private:
   DiffDriveTrajectory base_trajectory_;
 
   Color color_;
+  int iter;
 };
 
 }

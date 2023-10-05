@@ -1,0 +1,5 @@
+<launch>
+
+  <node pkg="hebi_cpp_api_examples" type="lookup_table.py" name="lookup_table_node" output="screen"/>
+
+</launch>

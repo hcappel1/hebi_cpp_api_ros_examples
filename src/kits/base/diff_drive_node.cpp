@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
+#include <std_msgs/Float32MultiArray.h>
 
 #include <hebi_cpp_api_examples/BaseMotionAction.h>
 
@@ -15,8 +16,6 @@
 
 #include <ros/console.h>
 #include <ros/package.h>
-
-//Update to fork
 
 namespace hebi {
 namespace ros {
@@ -115,6 +114,18 @@ public:
 
     // Replan given the current command
     base_.startVelControl(cmd_vel.linear.x, cmd_vel.angular.z, ::ros::Time::now().toSec());
+
+    // pull feedback data
+    Eigen::VectorXd temp_vec = base_.getMotorVelocity();
+    std::cout << temp_vec(0) << std::endl;
+  }
+
+  Eigen::VectorXd updateVelocityFeedback() {
+    return base_.getMotorVelocity();
+  }
+
+  Eigen::VectorXd updateTorqueFeedback() {
+    return base_.getMotorTorque();
   }
 
   void setActionServer(actionlib::SimpleActionServer<hebi_cpp_api_examples::BaseMotionAction>* action_server) {
@@ -129,6 +140,8 @@ private:
 
 } // namespace ros
 } // namespace hebi
+
+
 
 int main(int argc, char ** argv) {
 
@@ -186,12 +199,47 @@ int main(int argc, char ** argv) {
   ros::Subscriber set_velocity_subscriber =
     node.subscribe<geometry_msgs::Twist>("cmd_vel", 1, &hebi::ros::BaseNode::updateVelocity, &base_node);
 
+  //ros::Timer timer = node.createTimer(ros::Duration(0.3), &hebi::ros::BaseNode::updateVelocityFeedback, &base_node);
+
+
+  // Get feedback for rpm and torque
+  ros::Publisher motor_vel_pub = node.advertise<std_msgs::Float32MultiArray>("motor_ang_vel", 1000);
+  ros::Publisher motor_torque_pub = node.advertise<std_msgs::Float32MultiArray>("motor_torque", 1000);
+
+  //create timer for publishing motor data
+  //ros::Timer pub_timer = node.createTimer(ros::Duration(1.0), pubTimerCallback);
+  auto start_time = ros::Time::now().toSec();
+
   /////////////////// Main Loop ///////////////////
+
+  
 
   // Main command loop
   while (ros::ok()) {
 
     auto t = ros::Time::now().toSec();
+
+    if (!(t - start_time < 2)) {
+      Eigen::VectorXd motor_velocities = base_node.updateVelocityFeedback();
+      Eigen::VectorXd motor_torques = base_node.updateTorqueFeedback();
+    
+      // publish motor data 
+      if(!isnan(motor_velocities(0))) {
+        std_msgs::Float32MultiArray vel_msg;
+        vel_msg.data.push_back(motor_velocities(0));
+        vel_msg.data.push_back(motor_velocities(1));
+        motor_vel_pub.publish(vel_msg);
+      }
+
+      if(!isnan(motor_torques(0))) {
+        std_msgs::Float32MultiArray torque_msg;
+        torque_msg.data.push_back(motor_torques(0));
+        torque_msg.data.push_back(motor_torques(1));
+        motor_torque_pub.publish(torque_msg);
+      }
+      start_time = ros::Time::now().toSec();
+    }
+
 
     // Update feedback, and command the base to move along its planned path
     // (this also acts as a loop-rate limiter so no 'sleep' is needed)
@@ -200,6 +248,7 @@ int main(int argc, char ** argv) {
 
     // Call any pending callbacks (note -- this may update our planned motion)
     ros::spinOnce();
+
   }
 
   return 0;

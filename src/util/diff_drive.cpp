@@ -1,5 +1,6 @@
 #include "diff_drive.hpp"
 
+
 namespace hebi {
 
 DiffDriveTrajectory DiffDriveTrajectory::create(const Eigen::VectorXd& dest_positions, double t_now) {
@@ -140,7 +141,8 @@ Eigen::VectorXd DiffDriveTrajectory::getWaypointTimes(
     times[i] = rampTime * (double)i;
 
   return times;
-};    
+};
+
 
 std::unique_ptr<DiffDrive> DiffDrive::create(
   const std::vector<std::string>& families,
@@ -154,6 +156,7 @@ std::unique_ptr<DiffDrive> DiffDrive::create(
     assert(false);
     return nullptr;
   }
+
 
   // Try to find the modules on the network
   Lookup lookup;
@@ -203,7 +206,32 @@ std::unique_ptr<DiffDrive> DiffDrive::create(
   return std::unique_ptr<DiffDrive>(new DiffDrive(group, base_trajectory, feedback, start_time));
 }
 
+//testing
+Eigen::VectorXd DiffDrive::getMotorVelocity() {
+  return feedback_.getMotorVelocity();
+}
+
+Eigen::VectorXd DiffDrive::getMotorTorque() {
+  return feedback_.getEffort();
+}
+/////////
+
 bool DiffDrive::update(double time) {
+  //get and publish velocity and torque feedback 
+
+  //std_msgs::Float32 vel_msg;
+  //std_msgs::Float32MultiArray torque_msg;
+
+  //vel_msg.data = 1.0;
+  //vel_msg.data[1] = 1.0;
+  // torque_msg.data[0] = motor_efforts(0);
+  // torque_msg.data[1] = motor_efforts(1);
+
+  //motor_vel_pub.publish(vel_msg);
+  //motor_torque_pub.publish(torque_msg);
+
+  //std::cout << "motor torques: " << motor_efforts(0) << "," << motor_efforts(1) << std::endl;
+  //std::cout << "motor velocities: " << motor_velocities(0) << "," << motor_velocities(1) << std::endl;
 
   if (!group_->getNextFeedback(feedback_))
     return false;
@@ -218,6 +246,19 @@ bool DiffDrive::update(double time) {
   }
 
   group_->sendCommand(command_);
+
+  Eigen::VectorXd motor_velocities_command = feedback_.getVelocityCommand();
+  Eigen::VectorXd motor_velocities_feedback = feedback_.getVelocity();
+  Eigen::VectorXd motor_efforts = feedback_.getEffort();
+
+  if(iter == 75){
+    //std::cout << "motor torques: " << motor_efforts(0) << "," << motor_efforts(1) << std::endl;
+    std::cout << "motor velocity command: " << motor_velocities_command(0) << "," << motor_velocities_command(1) << std::endl;
+    std::cout << "motor velocity feedback: " << motor_velocities_feedback(0) << "," << motor_velocities_feedback(1) << std::endl;
+    iter = 0;
+  }
+
+  iter++;
 
   return true; 
 }
@@ -332,6 +373,10 @@ DiffDrive::DiffDrive(std::shared_ptr<Group> group,
     start_wheel_pos_(feedback.getPosition()),
     base_trajectory_{base_trajectory}
 {
+  int iter = 0;
+    // ros::NodeHandle n;
+    // ros::Publisher motor_vel_pub = n.advertise<std_msgs::Float32>("motor_ang_vel", 1000);
+    // ros::Publisher motor_torque_pub = n.advertise<std_msgs::Float32MultiArray>("motor_torque", 1000);
 }
 
 }
